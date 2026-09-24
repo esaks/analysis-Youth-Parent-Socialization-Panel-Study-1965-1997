@@ -1,0 +1,596 @@
+---
+title: "Longitudinal final project"
+author: "Emily Saks"
+date: "2024-10-15"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Load data and packages and extract the variables of interest
+```{r}
+# load packages
+library(haven)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(finalfit)
+library(psych)
+library(glmmTMB)
+library(lme4)
+library(car)
+
+# load data. n=935
+full_dataset <- read_por("path/to/data.por")
+head(full_dataset)
+
+# extract variables
+participation_variables<-c("V515", "V1634", "V5850", "V521", "V1642", "V5855", "V526", "V1649", "V5857", "V531", "V1701", "V5859", "V502", "V1621", "V5800")
+polarization_variables<-c("V432", "V440", "V1520", "V1525")
+knowledge_variables<-c("V760")
+ID_variable<-c("V6")
+control_variables<-c("V232", "V141", "V76", "V231", "V84", "V767")
+variable_names<-c(participation_variables, polarization_variables, knowledge_variables, control_variables, ID_variable)
+polpart<- full_dataset[variable_names]
+head(polpart)
+
+summary(polpart)
+```
+
+Rename, recode and construct variables
+```{r}
+# rename
+polpart<- polpart %>%
+  rename("part_persuade_2"= "V515",
+         "part_persuade_3" = "V1634",
+         "part_persuade_4" = "V5850",
+         "part_rallies_2" = "V521",
+         "part_rallies_3" = "V1642",
+         "part_rallies_4" = "V5855",
+         "part_work_2" = "V526",
+         "part_work_3" =  "V1649",
+         "part_work_4" = "V5857",
+         "part_button_2" =  "V531",
+         "part_button_3" =  "V1701",
+         "part_button_4" =  "V5859",   
+         "part_vote_2" = "V502",
+         "part_vote_3" = "V1621",
+         "part_vote_4"= "V5800")
+
+polpart<-polpart %>%
+  rename(
+    "ID" = "V6",
+    "education"= "V767",
+    "partisanship" = "V84",
+    "sex" = "V231",
+    "parental_soc" = "V76",
+    "pol_int" = "V141",
+    "race" = "V232"
+  )
+
+polpart<-polpart %>%
+  rename(
+   "pol_know_2" = "V760"
+  )
+
+polpart<-polpart %>%
+  rename(
+    "therm_rep_2" = "V440",
+    "therm_dem_2" = "V432",
+    "therm_rep_3" = "V1525",
+    "therm_dem_3" = "V1520"
+  )
+
+# to compute participation index, change to factors and relevel so 1=yes and 0=no
+polpart$part_persuade_2<-as.factor(polpart$part_persuade_2)
+polpart$part_rallies_2<-as.factor(polpart$part_rallies_2)
+polpart$part_work_2<-as.factor(polpart$part_work_2)
+polpart$part_button_2<-as.factor(polpart$part_button_2)
+polpart$part_vote_2<-as.factor(polpart$part_vote_2)
+polpart$part_persuade_3<-as.factor(polpart$part_persuade_3)
+polpart$part_rallies_3<-as.factor(polpart$part_rallies_3)
+polpart$part_work_3<-as.factor(polpart$part_work_3)
+polpart$part_button_3<-as.factor(polpart$part_button_3)
+polpart$part_vote_3<-as.factor(polpart$part_vote_3)
+polpart$part_persuade_4<-as.factor(polpart$part_persuade_4)
+polpart$part_rallies_4<-as.factor(polpart$part_rallies_4)
+polpart$part_work_4<-as.factor(polpart$part_work_4)
+polpart$part_button_4<-as.factor(polpart$part_button_4)
+polpart$part_vote_4<-as.factor(polpart$part_vote_4)
+levels(polpart$part_persuade_2)<-c(1,0)
+levels(polpart$part_rallies_2)<-c(1,0)
+levels(polpart$part_work_2)<-c(1,0)
+levels(polpart$part_button_2)<-c(1,0)
+levels(polpart$part_vote_2)<-c(1,0, NA)
+levels(polpart$part_persuade_3)<-c(1,0)
+levels(polpart$part_rallies_3)<-c(1,0)
+levels(polpart$part_work_3)<-c(1,0)
+levels(polpart$part_button_3)<-c(1,0)
+levels(polpart$part_vote_3)<-c(1,0, NA)
+levels(polpart$part_persuade_4)<-c(1,0)
+levels(polpart$part_rallies_4)<-c(1,0)
+levels(polpart$part_work_4)<-c(1,0)
+levels(polpart$part_button_4)<-c(1,0)
+levels(polpart$part_vote_4)<-c(1,0, NA)
+polpart$part_persuade_2<-as.numeric(polpart$part_persuade_2)-1
+polpart$part_rallies_2<-as.numeric(polpart$part_rallies_2)-1
+polpart$part_work_2<-as.numeric(polpart$part_work_2)-1
+polpart$part_button_2<-as.numeric(polpart$part_button_2)-1
+polpart$part_vote_2<-as.numeric(polpart$part_vote_2)-1
+polpart$part_persuade_3<-as.numeric(polpart$part_persuade_3)-1
+polpart$part_rallies_3<-as.numeric(polpart$part_rallies_3)-1
+polpart$part_work_3<-as.numeric(polpart$part_work_3)-1
+polpart$part_button_3<-as.numeric(polpart$part_button_3)-1
+polpart$part_vote_3<-as.numeric(polpart$part_vote_3)-1
+polpart$part_persuade_4<-as.numeric(polpart$part_persuade_4)-1
+polpart$part_rallies_4<-as.numeric(polpart$part_rallies_4)-1
+polpart$part_work_4<-as.numeric(polpart$part_work_4)-1
+polpart$part_button_4<-as.numeric(polpart$part_button_4)-1
+polpart$part_vote_4<-as.numeric(polpart$part_vote_4)-1
+
+# add participation index
+polpart$participation_index_2<-polpart$part_persuade_2+polpart$part_rallies_2+polpart$part_work_2+polpart$part_button_2+polpart$part_vote_2
+
+polpart$participation_index_3<-polpart$part_persuade_3+polpart$part_rallies_3+polpart$part_work_3+polpart$part_button_3+polpart$part_vote_3
+
+polpart$participation_index_4<-polpart$part_persuade_4+polpart$part_rallies_4+polpart$part_work_4+polpart$part_button_4+polpart$part_vote_4
+
+# recode partisanship 
+polpart<- polpart %>%
+  mutate(ideo= case_when(partisanship== 11 ~ "Democrat",
+                         partisanship== 12 ~ "Democrat",
+                         partisanship== 13 ~ "Democrat",
+                         partisanship== 15 ~ "Republican",
+                         partisanship== 16 ~ "Republican",
+                         partisanship== 17 ~ "Republican",
+                         partisanship== 14 ~ "Neither",
+                         partisanship== 20 ~ "Neither",
+                         partisanship== 30 ~ "Neither",
+                         partisanship== 40 ~ "DK",
+                         partisanship== 88 ~ "DK",
+                         TRUE ~ "NA"))
+polpart$ideo<-as.factor(polpart$ideo)
+polpart$ideo<-plyr::revalue(polpart$ideo, c("1"="Democrat", "2"="Neither", "3"="Republican", "99"="NA"))
+
+# recode polint
+polpart<- polpart %>%
+  mutate(pol_int= case_when(pol_int== 1 ~ "4",
+                         pol_int== 2 ~ "3",
+                         pol_int== 3 ~ "2",
+                         pol_int== 4 ~ "1",
+                         TRUE ~ "NA"))
+
+
+# recode race
+polpart<- polpart %>%
+  mutate(race= case_when(race== 1 ~ "White",
+                         race== 2 ~ "Non-white",
+                         race== 3 ~ "Non-white",
+                         race== 8 ~ "Non-white",
+                         TRUE ~ "NA"))
+polpart$race<-as.factor(polpart$race)
+
+# Turn other predictors/controls into factors
+to_convert<-c("education", "sex", "partisanship", "pol_int", "pol_know_2")
+polpart[, to_convert]<-lapply(polpart[, to_convert], as.factor) # turn into factor
+
+# add in affective polarization measure as difference between inparty and outparty feeling thermometer
+polpart<- polpart %>%
+  mutate(polarization= case_when(
+    partisanship %in% c(11,12,13) ~ abs(therm_dem_2-therm_rep_2),
+    partisanship %in% c(15,16,17) ~ abs(therm_rep_2-therm_dem_2),
+    TRUE~NA
+  )
+  )
+head(polpart)
+sum(is.na(polpart$polarization)) 
+```
+
+Examine "DK" and "Neither" responders on outcome variable which is participation index 4
+```{r}
+# For the participation items, 8=DK and 9=NA.Calculate DK and NAs on participation index 2-4.
+sum(is.na(polpart$part_persuade_2)) # 3 NA
+sum(is.na(polpart$part_rallies_2)) # 3 NA
+sum(is.na(polpart$part_work_2)) # 4 NA
+sum(is.na(polpart$part_button_2)) # 2 NA
+sum(is.na(polpart$part_vote_2)) 
+nrow(subset(polpart, polpart$part_persuade_2==8)) 
+nrow(subset(polpart, polpart$part_rallies_2==8))
+nrow(subset(polpart, polpart$part_work_2==8))
+nrow(subset(polpart, polpart$part_button_2==8))
+nrow(subset(polpart, polpart$part_vote_2==8)) # 0 DKs on all
+
+sum(is.na(polpart$part_persuade_3)) # 3 NA
+sum(is.na(polpart$part_rallies_3)) # 2 NA
+sum(is.na(polpart$part_work_3)) # 2 NA
+sum(is.na(polpart$part_button_3)) # 2 NA
+sum(is.na(polpart$part_vote_3)) # 2 NA
+nrow(subset(polpart, polpart$part_persuade_3==8)) 
+nrow(subset(polpart, polpart$part_rallies_3==8))
+nrow(subset(polpart, polpart$part_work_3==8))
+nrow(subset(polpart, polpart$part_button_3==8))
+nrow(subset(polpart, polpart$part_vote_3==8)) # 2 DKs on this last item only
+
+sum(is.na(polpart$part_persuade_4)) # 2 NA
+sum(is.na(polpart$part_rallies_4)) # 2 NA
+sum(is.na(polpart$part_work_4)) # 2 NA
+sum(is.na(polpart$part_button_4)) # 2 NA
+sum(is.na(polpart$part_vote_4)) # # 2 NA
+nrow(subset(polpart, polpart$part_persuade_4==8))
+nrow(subset(polpart, polpart$part_rallies_4==8))
+nrow(subset(polpart, polpart$part_work_4==8))
+nrow(subset(polpart, polpart$part_button_4==8))
+nrow(subset(polpart, polpart$part_vote_4==8)) # no DKs
+
+
+# Since there are only 2 DK responses and because past literature excludes them, we will exclude the DKs
+polpart<-subset(polpart, part_vote_3!=8)
+
+
+# For missingness, we will examine whether there are any patterns in the missingness to be aware of on the response variable (index at times 2-4)
+
+ff_glimpse(polpart) # shows us percent missing on all variables
+
+polpart %>%
+  missing_plot() # examine pattern of missingness
+ 
+explanatory = c("polarization", "education", "parental_soc", "pol_int", "race", "sex", "partisanship", "pol_know_2")
+dependent = c("participation_index_4", "participation_index_3", "participation_index_2")
+
+polpart %>%
+  missing_pattern(dependent, explanatory) # look at pattern of missingness
+polpart %>%
+  missing_pairs(dependent, explanatory) # possibly party ID, education, knowledge
+
+# let's confirm the differences. 
+explanatory = c("polarization", "education", "parental_soc", "pol_int", "race", "sex", "partisanship", "pol_know_2", "participation_index_2", "participation_index_3")
+dependent = c("participation_index_4")
+missing_compare(.data=polpart, dependent=dependent, explanatory=explanatory)
+polpart %>%
+  missing_compare(.data=polpart, dependent=dependent, explanatory=explanatory) %>%
+                    knitr::kable(row.names=FALSE)
+# No statistically significant differences were detected on the variables examined
+
+explanatory = c("polarization", "education", "parental_soc", "pol_int", "race", "sex", "partisanship", "pol_know_2", "participation_index_2")
+dependent = c("participation_index_3")
+missing_compare(.data=polpart, dependent=dependent, explanatory=explanatory)
+polpart %>%
+  missing_compare(.data=polpart, dependent=dependent, explanatory=explanatory) %>%
+                    knitr::kable(row.names=FALSE) # we can see no significant p-vales, so we will consider outcome MAR
+
+explanatory = c("polarization", "education", "parental_soc", "pol_int", "race", "sex", "partisanship", "pol_know_2")
+dependent = c("participation_index_2")
+missing_compare(.data=polpart, dependent=dependent, explanatory=explanatory)
+```
+\clearpage
+```{r}
+
+polpart %>%
+  missing_compare(.data=polpart, dependent=dependent, explanatory=explanatory) %>%
+                    knitr::kable(row.names=FALSE) 
+
+
+# We will also examine patterns of missingness on the predictor, affective polarization since there are many (262) of them
+explanatory = c("therm_rep_2", "therm_dem_2", "education", "parental_soc", "pol_int", "race", "sex", "partisanship", "pol_know_2", "participation_index_2", "participation_index_3", "participation_index_4")
+dependent = c("polarization")
+missing_compare(.data=polpart, dependent=dependent, explanatory=explanatory)
+polpart %>%
+  missing_compare(.data=polpart, dependent=dependent, explanatory=explanatory) %>%
+                    knitr::kable(row.names=FALSE) # We can see a significant difference by sex, political knowledge and parental socialization
+
+# final look
+summary(polpart)
+
+```
+
+Reshape data
+```{r}
+# reshaping
+polpart.long<-polpart %>%
+  pivot_longer(c(1:20, 28:30),
+               names_to=c(".value", "Time"),
+               names_pattern="(.+)_(.)"
+               )
+head(polpart.long)
+
+# recode time variable
+#  Data was collected 1973, 1982 and 1997. We will code the first interval as 0, the second as 9 and the third as 24
+polpart.long<- polpart.long %>%
+  mutate(Year= case_when(Time== 2 ~ "0",
+                         Time== 3 ~ "9",
+                         Time== 4 ~ "24",
+                         TRUE ~ "NA"))
+polpart.long$Year<-as.numeric(polpart.long$Year)
+
+
+summary(polpart.long)
+
+# check missing data on the long version of the index
+explanatory = c("polarization", "therm_rep", "therm_dem", "education", "parental_soc", "pol_int", "race", "sex", "partisanship", "pol_know")
+dependent = c("participation_index")
+missing_compare(.data=polpart.long, dependent=dependent, explanatory=explanatory)
+polpart %>%
+  missing_compare(.data=polpart.long, dependent=dependent, explanatory=explanatory) %>%
+                    knitr::kable(row.names=FALSE)
+# Education, parental soc, political interest, sex, political knowledge. Acknowledge as a limitation
+
+# could do FIML or multiple imputation
+
+```
+
+Plot the data and look at descriptive statistics
+```{r}
+# descriptives
+describe(polpart.long)
+
+grouptimemeans<-aggregate(x=polpart.long$participation_index,
+by=list(polpart.long$Year), FUN=mean,na.rm=TRUE)
+colnames(grouptimemeans)<-c("Year", "Political Participation")
+knitr::kable(grouptimemeans, digits=3, caption="Means for Political Participation by Wave")
+groupsd<-aggregate(x=polpart.long$participation_index,
+by=list(polpart.long$Year), FUN=sd,na.rm=TRUE)
+colnames(groupsd)<-c("Year", "Political Participation")
+knitr::kable(groupsd, digits=3, caption="SD for Political Participation by Wave")
+
+# look at distribution of the outcome variable
+hist(polpart$participation_index_2, 
+     main="Histogram of Political Participation Wave 2",
+     xlab="Political Participation Scores")
+hist(polpart$participation_index_3, 
+     main="Histogram of Political Participation Wave 3",
+     xlab="Political Participation Scores")
+hist(polpart$participation_index_4, 
+     main="Histogram of Political Participation Wave 4",
+     xlab="Political Participation Scores")
+
+# initial plot of individual trajectories
+g1 <- ggplot(data = polpart.long, aes(x=Year,y=participation_index, group=ID))+
+  geom_line()+
+  theme_bw ()+
+  scale_y_continuous(name="Political Participation")+
+  scale_linetype(name="Polarization")+
+  ggtitle("Individual Trajectories for Political Participation Over Time")
+g1
+
+
+# draw on fitted linear regression lines
+g2 <- ggplot(data = polpart.long,aes(x=Year,y=participation_index))+ 
+  geom_point () + 
+  theme_bw () +
+  stat_summary(fun="mean",geom="point",size=6,shape=18,colour="blue")+
+  stat_summary(fun="mean",geom="line",lwd=1.2,colour="blue")+
+  stat_smooth(method="lm",se=FALSE,lwd=1.2,formula=y~x,colour="red")+   scale_y_continuous(name="Political Participation")+
+  ggtitle("Mean Trajectory of Political Participation Over Time")
+g2
+
+# examine by polarization
+polpart.long$polarization_cut<-cut_interval(polpart.long$polarization, n=4)
+g3<-ggplot(data=polpart.long, aes(x=Year, y=participation_index, group=ID))+
+  geom_line()+
+  stat_summary(fun=mean,geom="line",lwd=3,aes(group=1))+
+  facet_grid(.~polarization_cut)
+g3
+
+```
+
+Begin testing baseline model -- Just the time variable (but can be linear, quadratic, etc.) predictor, and outcome variable. Use model comparison to see whether you need both time and predictor and which ones have a random component in addition to a fixed component. 
+```{r}
+## Fit different baseline models ##
+
+# Begin with testing negative binomial since it is a count index
+# we can observe that the mean of our outcome variable 3.07 is much lower than its variance 19
+#Assumptions: independence, homoskedasticity is no longer assumed because variance is a function of the mean, the model is linear in parameters but expected response is not linearly related to them
+#baseline_nb1<-glmer.nb(participation_index ~ 1 + Year + (1|ID), data=polpart.long)
+#summary(baseline_nb1) 
+baseline_nb2<-glmmTMB(participation_index ~ 1 + Year + (1 + Year|ID), data=polpart.long, family=nbinom2, control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
+summary(baseline_nb2) # needed to change optimizer due to convergence issues
+
+# Poisson
+baseline_poisson<- glmmTMB(participation_index ~ 1 + Year + (1 + Year|ID), data=polpart.long, family=poisson, control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS"))) 
+summary(baseline_poisson)
+
+# Linear 
+baseline_linear1<-lmer(participation_index~ 1 + Year + (1 + Year|ID),
+             data=polpart.long,
+             control = lmerControl(optimizer ="Nelder_Mead",
+                                  check.conv.singular = .makeCC(action = "ignore",  tol = 1e-3)),
+             REML=FALSE)
+summary(baseline_linear1) 
+
+
+# Compare to model with only random slope
+baseline_linear2<-lmer(participation_index~ 1 + Year + (0 + Year|ID),
+             data=polpart.long,
+             REML=FALSE)
+summary(baseline_linear2) # AIC=17418.5, BIC=17442.2 
+
+# Compare to model with only random intercept
+baseline_linear3<-lmer(participation_index~ 1 + Year + (1|ID),
+             data=polpart.long, control = lmerControl(optimizer ="Nelder_Mead",
+                                  check.conv.singular = .makeCC(action = "ignore",  tol = 1e-3)),
+             REML=FALSE)
+summary(baseline_linear3) # needed to change optimizer
+
+# Compare to model with only fixed effects
+baseline_linear4<-lm(participation_index~ 1 + Year,
+             data=polpart.long)
+summary(baseline_linear4) 
+BIC(baseline_linear4)
+
+
+
+```
+Figure comparing models
+```{r}
+## Figure comparing functional forms##
+# fixed intercept, fixed slope, variance of random intercept, variance of random slope, error variance, BIC
+modnbinom<-c("1.259", "-0.013", "6.995e-03", "2.176e-05 ",  "9311.800")
+modpos<-c("1.259", "-0.013", "6.891e-03", "2.166e-05", "9303.900")
+modlin1<-c("3.567", "-0.039", "0.577", "0.000",  "8452.200")
+
+table1<-cbind(modnbinom, modpos, modlin1)
+rownames(table1)<-c("Fixed Intercept", "Fixed Slope", "Variance of Random Intercept", "Variance of Random Slope", "BIC")
+knitr::kable(table1, digits=3, caption="Parameter Estimates for Functional Forms", col.names=c("Negative Binomial", "Poisson", "Linear"), align="c")
+
+
+## Figure comparing fixed vs. random effects##
+modlin2<-c("3.507", "-0.037", "-", "0.002", "1.342", "8715.500")
+modlin3<-c("3.581", "-0.040", "0.823", "-", "1.046", "8471.300")
+modlin4<-c("3.507", "0.037", "-", "-", "1.860", "8870.164")
+table2<-cbind(modlin1, modlin2, modlin3, modlin4)
+rownames(table2)<-c("Fixed Intercept", "Fixed Slope", "Variance of Random Intercept", "Variance of Random Slope", "Error Variance", "BIC")
+knitr::kable(table2, digits=3, caption="Parameter Estimates for Determining Inclusion of Random Effects", col.names=c("Random Intercept and Random Slope", "Fixed Intercept and Random Slope", "Random Intercept and Fixed Slope", "Fixed Intercept and Fixed Slope"), align="c")
+```
+
+
+Check assumptions
+```{r}
+# Are random effects normally distributed?
+#fixef(baseline_linear1)
+#ranef(baseline_linear1)
+ind.intercepts<-fixef(baseline_linear1)[1] + ranef(baseline_linear1)[[1]][, 1]
+hist(ind.intercepts)
+boxplot(ind.intercepts)
+qqnorm(ind.intercepts)
+qqline(ind.intercepts)
+describe(ind.intercepts) # yes, look normal
+
+ind.slopes<- fixef(baseline_linear1)[2] + ranef(baseline_linear1)[[1]][,2] # get individual slopes
+hist(ind.slopes)
+boxplot(ind.slopes)
+qqnorm(ind.slopes)
+qqline(ind.slopes)
+describe(ind.slopes)
+
+# Are the residuals/errors normally distributed with a mean of 0?
+res<-resid(baseline_linear1)
+boxplot(res)
+qqnorm(res)
+qqline(res)
+describe(res)
+
+# Are the errors independent?
+plot(x=polpart.long$Year, y=res[1:length(polpart.long$Year)], xlab="Time", ylab="Residual")
+
+``` 
+
+Specify the variance-covariance matrix for repeated measures residuals and the random effects error structure.
+```{r}
+# Check to see if we can assume an independent error structure ##
+
+# compute covariance matrix
+polpart<-as.data.frame(polpart)
+table5<-round(cov(x=polpart[, 28:30], use="pairwise.complete.obs"), digits=3)
+rownames(table5)<-c("Time 1", "Time 2", "Time 3")
+knitr::kable(table5, digits=3, caption="Covariance Matrix", colnames=c("Time 1", "Time 2", "Time 3"))
+
+# compute correlation matrix of residuals at each time point
+polpart.long2<-subset(polpart.long, is.na(polpart.long$participation_index)==FALSE)
+polpart.long2$fitted_mod<-na.omit(fitted(baseline_linear1))
+polpart.long2$resid_mod<-resid(baseline_linear1)
+resid_0<-polpart.long2[polpart.long2$Year==0, ]$resid_mod
+resid_1<-polpart.long2[polpart.long2$Year==9, ]$resid_mod
+resid_2<-polpart.long2[polpart.long2$Year==24, ]$resid_mod
+residuals<- cbind(resid_0, resid_1, resid_2)
+round(residuals,3)
+table6<-round(cor(residuals), digits=3)
+rownames(table6)<-c("Time 1", "Time 2", "Time 3")
+knitr::kable(table6, digits=3, caption="Correlation Matrix of Residuals", col.names=c("Time 1", "Time 2", "Time 3"))
+
+# We can see that the residuals are not highly correlated between time points. Also, the variance of scores between time points is fairly similar
+
+# We could test alternative error structures but I think it meets assumptions for independent
+
+```
+
+Test covariates
+```{r}
+
+# Baseline model
+baseline_linear1<-lmer(participation_index~ 1 + Year + (1 + Year|ID),
+             data=polpart.long,
+             control = lmerControl(optimizer ="Nelder_Mead",
+                                  check.conv.singular = .makeCC(action = "ignore",  tol = 1e-3)),
+             REML=FALSE)
+summary(baseline_linear1) 
+
+# Model with demographic covariates
+linear1<-lmer(participation_index~ 1 + Year + race + sex + education + partisanship + (1 + Year|ID),
+             data=polpart.long,
+             control = lmerControl(optimizer ="Nelder_Mead",
+                                  check.conv.singular = .makeCC(action = "ignore",  tol = 1e-3)),
+             REML=FALSE)
+summary(linear1)
+
+# Model with pol int and parental soc
+linear2<-lmer(participation_index~ 1 + Year + race + sex + education + partisanship + pol_int + parental_soc + (1 + Year|ID),
+             data=polpart.long,
+             control = lmerControl(optimizer ="Nelder_Mead",
+                                  check.conv.singular = .makeCC(action = "ignore",  tol = 1e-3)),
+             REML=FALSE)
+summary(linear2)
+
+# multimodel inference
+library("bbmle")                              
+
+mynames <- as.character(1:3) 								# model numbers as characters
+myaicc  <- ICtab(logLik(baseline_linear1), 
+		             logLik(linear1), 
+		             logLik(linear2), 
+		             type ="AICc",
+		             nobs = nrow(na.omit(polpart.long)),
+		             weights =TRUE,delta =TRUE,
+		             sort=TRUE,mnames=mynames,base=TRUE)
+
+myaicc$rweight <- max(myaicc$weight)/myaicc$weight
+myaicc
+
+# we can see that adding in the controls improves the model
+```
+
+
+Test hypotheses
+```{r}
+# Model with hypothesized independent variable polarization
+linear3<-lmer(participation_index~ 1 + Year + race + sex + education + partisanship + pol_int + parental_soc + polarization + (1 + Year|ID),
+             data=polpart.long,
+             control = lmerControl(optimizer ="Nelder_Mead",
+                                  check.conv.singular = .makeCC(action = "ignore",  tol = 1e-3)),
+             REML=FALSE)
+summary(linear3)
+
+# model with interaction
+linear4<-lmer(participation_index~ 1 + Year*polarization + race + sex + education + partisanship + pol_int + parental_soc  + (1 + Year|ID),
+             data=polpart.long,
+             control = lmerControl(optimizer ="Nelder_Mead",
+                                  check.conv.singular = .makeCC(action = "ignore",  tol = 1e-3)),
+             REML=FALSE)
+summary(linear4)
+
+
+# multimodel inference
+mynames <- as.character(1:5) 							
+myaicc  <- ICtab(logLik(baseline_linear1), 
+		             logLik(linear1), 
+		             logLik(linear2), 
+		             logLik(linear3), 
+		             logLik(linear4),
+		             type ="AICc",
+		             nobs = nrow(na.omit(polpart.long)),
+		             weights =TRUE,delta =TRUE,
+		             sort=TRUE,mnames=mynames,base=TRUE)
+
+myaicc$rweight <- max(myaicc$weight)/myaicc$weight
+myaicc
+
+# Calculate R^2
+library(MuMIn)
+r.squaredGLMM(linear3)
+r.squaredGLMM(linear4)
+# Marginal only takes into account fixed effects. The marginal R^2 is 0.17 and the conditional is 0.47, which is good in psychology.
+```
+Figures with final model comparison
+```{r}
+modelsummary::msummary(list("Model 1"=linear2, "Model 2"=linear3, "Model 3"=linear4), output="flextable", coef_omit=c(19:22))
+```
+
