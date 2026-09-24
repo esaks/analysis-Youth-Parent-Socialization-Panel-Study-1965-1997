@@ -2,7 +2,7 @@
 For a final project for my Statistical Analysis of Longitudinal Data course, I developed a project analyzing longitudinal survey data using a linear mixed-effects growth model to examine the relationship between polarization and changes in political participation across three waves.
 
 # Project Summary
-Back in Fall 2024, I took a course in Statistical Analysis of Longitudinal Data. For our final project, we had analyze real data using techniques learned in class and report our results in a paper. I obtained real-world longitudinal dataset, cleaned it and recoded variables, tested statistical assumptions, compared linear/negative binomial/poisson functional forms, compared random-effects structures and tested my primary hypothesis. I hypothesized that affective polarization will significantly explain changes in political participation over time after accounting for factors such as race, sex, education, partisan affiliation, political interest and amount of parental political socialization.
+Back in Fall 2024, I took a course in Statistical Analysis of Longitudinal Data. For our final project, we had analyze real data using techniques learned in class and report our results in a paper. I obtained real-world longitudinal dataset, cleaned it and recoded variables, tested statistical assumptions, compared linear/negative binomial/poisson functional forms, compared random-effects structures and tested my primary hypothesis. I hypothesized that affective polarization would significantly explain changes in political participation over time after accounting for factors such as race, sex, education, partisan affiliation, political interest and amount of parental political socialization.
 
 # Purpose
 To practice longitudinal analysis
